@@ -1,0 +1,77 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile identifying their role in the system",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["resident", "society", "driver", "admin"] },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Water tanker delivery request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userRole": { "type": "string", "enum": ["resident", "society"] },
+        "residentName": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "volume": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Confirmed", "En Route", "Delivered"] },
+        "requestedDate": { "type": "string" },
+        "requestedTime": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "eta": { "type": "string" },
+        "tankerId": { "type": "string" },
+        "driverName": { "type": "string" },
+        "driverPhone": { "type": "string" },
+        "paymentStatus": { "type": "string", "enum": ["Paid", "Pending"] },
+        "paymentMethod": { "type": "string", "enum": ["UPI", "Card", "Cash"] },
+        "priority": { "type": "boolean" },
+        "isDeletedForUser": { "type": "boolean" }
+      },
+      "required": ["userId", "residentName", "phone", "address", "volume", "status"]
+    },
+    "Complaint": {
+      "title": "Complaint",
+      "description": "Customer feedback or issue report",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "residentName": { "type": "string" },
+        "phone": { "type": "string" },
+        "issueType": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["Open", "Resolved"] },
+        "createdAt": { "type": "number" },
+        "reply": { "type": "string" }
+      },
+      "required": ["userId", "residentName", "issueType", "description", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Water delivery requests"
+    },
+    "/complaints/{complaintId}": {
+      "schema": "Complaint",
+      "description": "User filed complaints"
+    }
+  }
+}

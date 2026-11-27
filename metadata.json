@@ -1,0 +1,8 @@
+{
+  "name": "AquaLink: Mira-Bhayandar Water Supply",
+  "description": "A centralized digital system for automated water tanker booking, real-time tracking, and efficient scheduling.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

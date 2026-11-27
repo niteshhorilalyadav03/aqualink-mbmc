@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Phase 0: Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function getUserData() { 
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : null; 
+    }
+    function hasRole(role) { 
+      let data = getUserData();
+      return isSignedIn() && (
+        (data != null && data.get('role', '') == role) || 
+        (role == 'admin' && request.auth.token.email in ['nileshyadav.2081@gmail.com', 'nitesh.h.yadav24@slrtce.in', 'nileshyadavthaur149@gmail.com'])
+      ); 
+    }
+    function isAdmin() { return hasRole('admin'); }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // --- Validators ---
+
+    function isValidBooking(data) {
+      return data.keys().hasAll(['id', 'userId', 'residentName', 'phone', 'address', 'volume', 'status', 'requestedDate', 'requestedTime', 'createdAt', 'paymentStatus', 'paymentMethod']) &&
+             data.id is string && data.id.size() <= 64 &&
+             data.userId == request.auth.uid &&
+             data.residentName is string && data.residentName.size() <= 128 &&
+             data.phone is string && data.phone.size() <= 20 &&
+             data.address is string && data.address.size() <= 500 &&
+             data.volume is string && data.volume.size() <= 50 &&
+             data.status in ['Pending', 'Confirmed', 'En Route', 'Delivered', 'Cancelled'] &&
+             data.requestedDate is string &&
+             data.requestedTime is string &&
+             data.createdAt is number && 
+             data.paymentStatus in ['Paid', 'Pending', 'PAID', 'PENDING'] &&
+             data.paymentMethod in ['UPI', 'Card', 'Cash', 'CARD', 'CASH'] &&
+             (!('priority' in data) || data.priority is bool) &&
+             (!('userRole' in data) || data.userRole in ['resident', 'society']);
+    }
+
+    function isValidComplaint(data) {
+      return data.keys().hasAll(['id', 'residentName', 'phone', 'issueType', 'description', 'status', 'createdAt', 'userId']) &&
+             data.id is string &&
+             data.userId == request.auth.uid &&
+             data.status in ['Open', 'Resolved'] &&
+             data.createdAt is number;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid == request.auth.uid &&
+             data.email == request.auth.token.email &&
+             data.role in ['society', 'resident', 'driver', 'admin'];
+    }
+
+    // --- Rules ---
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming()) && (incoming().role != 'admin' || isAdmin()); 
+      allow update: if isSignedIn() && isOwner(userId) && 
+                    isValidUser(incoming()) &&
+                    (incoming().role == existing().role || (existing().role != 'admin' && incoming().role != 'admin')) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'role']);
+    }
+
+    match /bookings/{bookingId} {
+      allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin() || hasRole('driver'));
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin() || hasRole('driver'));
+      allow create: if isSignedIn() && isValidId(bookingId) && isValidBooking(incoming());
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (isOwner(existing().userId) && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && existing().status == 'Pending' && incoming().status == 'Cancelled') ||
+        (hasRole('driver') && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'eta', 'tankerId', 'driverName', 'driverPhone']) && existing().status != 'Delivered')
+      );
+    }
+
+    match /complaints/{complaintId} {
+      allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(complaintId) && isValidComplaint(incoming());
+      allow update: if isAdmin();
+    }
+  }
+}
